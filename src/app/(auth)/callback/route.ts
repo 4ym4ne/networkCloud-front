@@ -1,16 +1,21 @@
-// **__ Callback route — handles redirect from Keycloak (PKCE token exchange) __**
-
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeCodeForTokens, getUserInfo } from "@/server/oidc";
 import { createSession } from "@/server/session";
 import { envServer as env } from "@/config/env.server";
-import { createClient } from "redis";
+import { redis } from "@/server/redis";
+import { generateCsrfToken } from "@/server/csrf";
 
-// ⚙️ Initialize Redis (minimal one-liner client for de-duplication)
-const redis = createClient({ url: env.REDIS_URL });
-redis.connect().catch((err) =>
-    console.error("❌ Redis connection failed in callback:", err)
-);
+/**
+ * ✅ Callback Route — handles the Keycloak redirect (PKCE token exchange)
+ * ----------------------------------------------------------------------
+ * 1. Retrieves the authorization code & PKCE verifier
+ * 2. Exchanges code for tokens via Keycloak
+ * 3. Fetches user info
+ * 4. Deletes any old Redis sessions for same user
+ * 5. Creates a new Redis session
+ * 6. Sets secure cookies (`sid` + `csrf_token`)
+ * 7. Redirects to `/` (or any target)
+ */
 
 export async function GET(req: NextRequest) {
     try {
@@ -18,6 +23,7 @@ export async function GET(req: NextRequest) {
         const code = url.searchParams.get("code");
         const error = url.searchParams.get("error");
 
+        // 1️⃣ --- Error Handling ---
         if (error) {
             console.error("❌ OIDC error:", error);
             return NextResponse.json({ error }, { status: 400 });
@@ -30,7 +36,7 @@ export async function GET(req: NextRequest) {
             );
         }
 
-        // **__ Step 1: Retrieve PKCE verifier from cookie __**
+        // 2️⃣ --- Retrieve PKCE verifier from cookie ---
         const codeVerifier = req.cookies.get("pkce_verifier")?.value;
         if (!codeVerifier) {
             return NextResponse.json(
@@ -39,25 +45,22 @@ export async function GET(req: NextRequest) {
             );
         }
 
-        // **__ Step 2: Exchange code for tokens via Keycloak __**
+        // 3️⃣ --- Exchange code for tokens ---
         const tokens = await exchangeCodeForTokens(code, codeVerifier);
 
-        // **__ Step 3: Fetch user info from Keycloak __**
+        // 4️⃣ --- Fetch user info ---
         const userInfo = await getUserInfo(tokens.access_token);
         const userSub = userInfo.sub;
 
-        // **__ Step 4: Find existing session(s) for same userSub and delete __**
-        // This ensures one active session per user
-        const allKeys = await redis.keys("sess:*");
-        for (const key of allKeys) {
-            const raw = await redis.get(key);
-            if (raw && raw.includes(`"sub":"${userSub}"`)) {
-                console.log(`♻️ Existing session for user ${userSub} → deleting old key ${key}`);
-                await redis.del(key);
-            }
+        // 5️⃣ --- Delete any existing sessions for the same user ---
+        const existingSid = await redis.get(`user:${userSub}`);
+        if (existingSid) {
+            console.log(`♻️ Existing session for user ${userSub} → deleting ${existingSid}`);
+            await redis.del(`sess:${existingSid}`);
+            await redis.del(`user:${userSub}`);
         }
 
-        // **__ Step 5: Create new Redis session __**
+        // 6️⃣ --- Create new Redis session ---
         const sid = await createSession({
             sub: userSub,
             username: userInfo.preferred_username ?? userInfo.email ?? "user",
@@ -67,16 +70,32 @@ export async function GET(req: NextRequest) {
             roles: userInfo.realm_access?.roles ?? [],
         });
 
-        // **__ Step 6: Clean up PKCE cookie and set new sid cookie __**
+        // 7️⃣ --- Generate CSRF token ---
+        const csrfToken = generateCsrfToken();
+
+        // 8️⃣ --- Prepare redirect response ---
         const redirectUrl = new URL("/", req.url);
         const res = NextResponse.redirect(redirectUrl);
+
+        // --- Clean PKCE cookie ---
         res.cookies.delete("pkce_verifier");
+
+        // --- Set session cookie ---
         res.cookies.set("sid", sid, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
             path: "/",
-            maxAge: env.SESSION_TTL ?? 60 * 60 * 24 * 7,
+            maxAge: env.SESSION_TTL ?? 60 * 60 * 24 * 7, // 7 days
+        });
+
+        // --- Set CSRF token cookie (readable) ---
+        res.cookies.set("csrf_token", csrfToken, {
+            httpOnly: false, // must be readable by frontend JS
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
+            maxAge: 60 * 60 * 24, // 1 day
         });
 
         console.log(`✅ User ${userSub} logged in — new session: ${sid}`);

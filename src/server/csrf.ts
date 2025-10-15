@@ -10,6 +10,6 @@ export function generateCsrfToken(): string {
 /**
  * Validates CSRF token pair (cookie + header).
  */
-export function validateCsrfToken(cookieToken?: string, headerToken?: string): boolean {
+export function validateCsrfToken(cookieToken?: string | undefined, headerToken?: string | null): boolean {
     return !!cookieToken && !!headerToken && cookieToken === headerToken;
 }
