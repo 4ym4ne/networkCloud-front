@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/server/session";
 import { validateCsrfToken } from "@/server/csrf";
 import { envServer as env } from "@/config/env.server";
+import { SID_COOKIE, CSRF_COOKIE } from "@/lib/cookies";
 
 /**
  * Secure API Proxy (Next.js BFF → Spring Cloud Gateway)
@@ -24,7 +25,7 @@ export async function handler(
         }
 
         // 1️⃣ --- Validate session cookie ---
-        const sid = req.cookies.get("sid")?.value;
+        const sid = req.cookies.get(SID_COOKIE)?.value;
         if (!sid) {
             return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
         }
@@ -36,7 +37,7 @@ export async function handler(
 
         // 2️⃣ --- CSRF Protection ---
         if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
-            const csrfCookie = req.cookies.get("csrf_token")?.value;
+            const csrfCookie = req.cookies.get(CSRF_COOKIE)?.value;
             const csrfHeader = req.headers.get("x-csrf-token");
             const valid = validateCsrfToken(csrfCookie, csrfHeader);
             if (!valid) {
@@ -49,7 +50,7 @@ export async function handler(
         if (expiresSoon) {
             await fetch(`${req.nextUrl.origin}/api/session/refresh`, {
                 method: "POST",
-                headers: { Cookie: `sid=${sid}` },
+                headers: { Cookie: `${SID_COOKIE}=${sid}` },
             });
         }
 
@@ -76,12 +77,10 @@ export async function handler(
 
         // 7️⃣ --- Mirror backend response ---
         const contentType = apiRes.headers.get("content-type") ?? "application/json";
-        const res = new NextResponse(apiRes.body, {
+        return new NextResponse(apiRes.body, {
             status: apiRes.status,
             headers: { "content-type": contentType },
         });
-
-        return res;
     } catch (err) {
         console.error("❌ Proxy error:", err);
         return NextResponse.json({ error: "Internal proxy error" }, { status: 500 });

@@ -21,7 +21,7 @@ import { useSession } from "@/hooks/useSession";
 export default function Header() {
     const pathname = usePathname();
     const router = useRouter();
-    const { user, loading, error, login, logout } = useSession();
+    const { user, loading, error, login, logout, loginInProgress } = useSession();
     const [mobileOpen, setMobileOpen] = useState(false);
 
     // note: `useSession` handles loading/error internally; Header can react accordingly
@@ -102,8 +102,15 @@ export default function Header() {
                             </DropdownMenuContent>
                         </DropdownMenu>
                     ) : (
-                        <Button variant="default" size="sm" onClick={() => login()}>
-                            Login
+                        <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => login()}
+                            disabled={loginInProgress}
+                            aria-disabled={loginInProgress}
+                            aria-busy={loginInProgress}
+                        >
+                            {loginInProgress ? "Signing in…" : "Login"}
                         </Button>
                     )}
 

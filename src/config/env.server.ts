@@ -22,7 +22,7 @@ const EnvServerSchema = z.object({
     SESSION_SECRET: z
         .string()
         .min(32, "SESSION_SECRET must be at least 32 characters long"),
-    SESSION_TTL: z.coerce.number().int().positive().default(60 * 60 * 24 * 7),
+    SESSION_TTL: z.coerce.number().int().positive().default(60 * 30),
 });
 
 export const envServer = EnvServerSchema.parse(process.env);

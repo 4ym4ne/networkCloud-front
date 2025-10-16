@@ -4,10 +4,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { envServer as env } from "@/config/env.server";
 import { destroySession, getSession } from "@/server/session";
+import { SID_COOKIE, PKCE_COOKIE } from "@/lib/cookies";
 
 export async function GET(req: NextRequest) {
     try {
-        const sid = req.cookies.get("sid")?.value;
+        const sid = req.cookies.get(SID_COOKIE)?.value;
 
         // (Optional) revoke KC refresh token, and always drop Redis session
         if (sid) {
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
         // ✅ Clear cookies on the returned response (match path)
         // ✅ Delete cookies safely (Next.js 14+ compatible)
         res.cookies.set({
-            name: "sid",
+            name: SID_COOKIE,
             value: "",
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
         });
 
         res.cookies.set({
-            name: "pkce_verifier",
+            name: PKCE_COOKIE,
             value: "",
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
@@ -70,9 +71,9 @@ export async function GET(req: NextRequest) {
             maxAge: 0,
         });
 
-        console.log(`🗑️ Cleared session cookie + Redis sid:${sid}`);
-
-        console.log(`🗑️ Deleted session cookie + Redis sid:${sid}`);
+        const sidLabel = sid ?? "<missing>";
+        console.log(`🗑️ Cleared session cookie + Redis sid:${sidLabel}`);
+        console.log(`🗑️ Deleted session cookie + Redis sid:${sidLabel}`);
 
         return res;
     } catch (err) {

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { exchangeCodeForTokens, getUserInfo } from "@/server/oidc";
 import { createSession } from "@/server/session";
 import { envServer as env } from "@/config/env.server";
-import { redis } from "@/server/redis";
 import { generateCsrfToken } from "@/server/csrf";
+import { SID_COOKIE, CSRF_COOKIE, PKCE_COOKIE } from "@/lib/cookies";
 
 /**
  * ✅ Callback Route — handles the Keycloak redirect (PKCE token exchange)
@@ -52,15 +52,7 @@ export async function GET(req: NextRequest) {
         const userInfo = await getUserInfo(tokens.access_token);
         const userSub = userInfo.sub;
 
-        // 5️⃣ --- Delete any existing sessions for the same user ---
-        const existingSid = await redis.get(`user:${userSub}`);
-        if (existingSid) {
-            console.log(`♻️ Existing session for user ${userSub} → deleting ${existingSid}`);
-            await redis.del(`sess:${existingSid}`);
-            await redis.del(`user:${userSub}`);
-        }
-
-        // 6️⃣ --- Create new Redis session ---
+        // 5️⃣ --- Create new Redis session ---
         const sid = await createSession({
             sub: userSub,
             username: userInfo.preferred_username ?? userInfo.email ?? "user",
@@ -70,27 +62,27 @@ export async function GET(req: NextRequest) {
             roles: userInfo.realm_access?.roles ?? [],
         });
 
-        // 7️⃣ --- Generate CSRF token ---
+        // 6️⃣ --- Generate CSRF token ---
         const csrfToken = generateCsrfToken();
 
-        // 8️⃣ --- Prepare redirect response ---
+        // 7️⃣ --- Prepare redirect response ---
         const redirectUrl = new URL("/", req.url);
         const res = NextResponse.redirect(redirectUrl);
 
         // --- Clean PKCE cookie ---
-        res.cookies.delete("pkce_verifier");
+        res.cookies.delete(PKCE_COOKIE);
 
         // --- Set session cookie ---
-        res.cookies.set("sid", sid, {
+        res.cookies.set(SID_COOKIE, sid, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
             path: "/",
-            maxAge: env.SESSION_TTL ?? 60 * 60 * 24 * 7, // 7 days
+            maxAge: env.SESSION_TTL ?? 60 * 60 * 24 * 7,
         });
 
         // --- Set CSRF token cookie (readable) ---
-        res.cookies.set("csrf_token", csrfToken, {
+        res.cookies.set(CSRF_COOKIE, csrfToken, {
             httpOnly: false, // must be readable by frontend JS
             secure: process.env.NODE_ENV === "production",
             sameSite: "lax",

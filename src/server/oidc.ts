@@ -46,6 +46,11 @@ export function createPkceSession() {
     return { codeVerifier, codeChallenge };
 }
 
+// New helper: compute code_challenge for an existing verifier
+export function computeCodeChallenge(codeVerifier: string) {
+    return crypto.createHash("sha256").update(codeVerifier).digest().toString("base64url");
+}
+
 // **__ Build authorization URL for redirecting user to Keycloak __**
 export async function buildAuthorizationUrl(codeChallenge: string) {
     const cfg = await getKeycloakConfig();

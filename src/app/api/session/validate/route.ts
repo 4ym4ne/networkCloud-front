@@ -1,6 +1,7 @@
 // src/app/api/session/validate/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/server/session";
+import { SID_COOKIE } from "@/lib/cookies";
 
 /**
  * POST /api/session/validate
@@ -8,7 +9,7 @@ import { getSession } from "@/server/session";
  */
 export async function POST(req: NextRequest) {
     try {
-        const sid = req.cookies.get("sid")?.value;
+        const sid = req.cookies.get(SID_COOKIE)?.value;
         if (!sid) {
             return NextResponse.json({ valid: false, expired: false });
         }

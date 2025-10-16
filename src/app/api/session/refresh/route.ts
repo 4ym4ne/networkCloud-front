@@ -2,10 +2,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { envServer as env } from "@/config/env.server";
 import { getSession, rotateSession, destroySession } from "@/server/session";
+import { SID_COOKIE } from "@/lib/cookies";
 
 export async function POST(req: NextRequest) {
     try {
-        const sid = req.cookies.get("sid")?.value;
+        const sid = req.cookies.get(SID_COOKIE)?.value;
         if (!sid) {
             return NextResponse.json({ error: "Missing session ID" }, { status: 401 });
         }
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
         console.log(`🔄 Session rotated for user ${session.username}: ${sid} → ${newSid}`);
 
         const res = NextResponse.json({ message: "Session refreshed" });
-        res.cookies.set("sid", newSid, {
+        res.cookies.set(SID_COOKIE, newSid, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "lax",

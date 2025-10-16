@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/server/services/user.service";
+import { SID_COOKIE } from "@/lib/cookies";
 
 export async function POST(req: NextRequest) {
     try {
-        const sid = req.cookies.get("sid")?.value;
+        const sid = req.cookies.get(SID_COOKIE)?.value;
         const user = await getAuthenticatedUser(sid);
 
         if (!user) {
