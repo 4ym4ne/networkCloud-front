@@ -14,6 +14,7 @@ export interface SessionData {
     username: string;       // Username
     access_token: string;   // Access token
     refresh_token?: string; // Refresh token
+    id_token?: string;      // ID token (for logout hint)
     roles?: string[];       // User roles
     expires_at: number;     // access token expiry (epoch ms)
 }

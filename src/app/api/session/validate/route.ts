@@ -1,6 +1,6 @@
 // src/app/api/session/validate/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/server/session";
+import { getSession, destroySession } from "@/server/session";
 import { SID_COOKIE } from "@/lib/cookies";
 
 /**
@@ -29,5 +29,32 @@ export async function POST(req: NextRequest) {
     } catch (err) {
         console.error("❌ Session validation error:", err);
         return NextResponse.json({ valid: false, expired: false });
+    }
+}
+
+export async function GET(req: NextRequest) {
+    try {
+        const sid = req.cookies.get(SID_COOKIE)?.value;
+        if (!sid) return NextResponse.json({ valid: false });
+
+        const session = await getSession(sid);
+        if (!session || !session.expires_at || Date.now() >= session.expires_at) {
+            // cleanup stale session
+            try {
+                await destroySession(sid);
+            } catch (e) {
+                // ignore
+            }
+            return NextResponse.json({ valid: false });
+        }
+
+        return NextResponse.json({
+            valid: true,
+            expires_at: session.expires_at,
+            username: session.username,
+        });
+    } catch (err) {
+        console.error("/api/session/validate error:", err);
+        return NextResponse.json({ valid: false }, { status: 500 });
     }
 }

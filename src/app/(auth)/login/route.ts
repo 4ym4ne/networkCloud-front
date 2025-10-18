@@ -1,9 +1,10 @@
 // **__ Login route — starts PKCE flow only if user truly not logged in __**
 
 import { NextRequest, NextResponse } from "next/server";
-import { createPkceSession, buildAuthorizationUrl, computeCodeChallenge } from "@/server/oidc";
+import { createPkceSession, buildAuthorizationUrl } from "@/server/oidc";
 import { getSession } from "@/server/session";
-import { PKCE_COOKIE, SID_COOKIE } from "@/lib/cookies";
+import { SID_COOKIE } from "@/lib/cookies";
+import { redis } from "@/server/redis";
 
 export async function GET(req: NextRequest) {
     try {
@@ -18,48 +19,17 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        // **__ Step 2: No valid session — start (or reuse) PKCE auth flow __**
-        // If a PKCE verifier cookie already exists (for example due to Link prefetch or an earlier attempt), reuse it
-        const existingVerifier = req.cookies.get(PKCE_COOKIE)?.value;
+        // **__ Step 1: create PKCE + state/nonce and persist server-side in Redis __**
+        const pkce = createPkceSession();
+        const { codeVerifier, codeChallenge, state, nonce, ttl } = pkce;
 
-        let codeVerifier: string;
-        let codeChallenge: string;
+        const key = `oidc:pkce:${state}`;
+        await redis.setEx(key, ttl, JSON.stringify({ codeVerifier, nonce }));
 
-        if (existingVerifier) {
-            codeVerifier = existingVerifier;
-            codeChallenge = computeCodeChallenge(codeVerifier);
-            console.log("🔑 Reusing existing PKCE verifier from cookie");
-        } else {
-            const pkce = createPkceSession();
-            codeVerifier = pkce.codeVerifier;
-            codeChallenge = pkce.codeChallenge;
-            console.log("🔑 Starting new PKCE login flow (new verifier created)");
-        }
+        const authUrl = await buildAuthorizationUrl(codeChallenge, state, nonce);
 
-        const authUrl = await buildAuthorizationUrl(codeChallenge);
-
-        // **__ Step 3: Store PKCE verifier securely (5 min) if newly created __**
-        const res = NextResponse.redirect(authUrl);
-        if (!existingVerifier) {
-            res.cookies.set(PKCE_COOKIE, codeVerifier, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "lax",
-                path: "/",
-                maxAge: 300,
-            });
-        } else {
-            // refresh TTL on reuse to keep it valid for the redirect
-            res.cookies.set(PKCE_COOKIE, codeVerifier, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "lax",
-                path: "/",
-                maxAge: 300,
-            });
-        }
-
-        return res;
+        // Redirect user to Keycloak auth endpoint
+        return NextResponse.redirect(authUrl);
     } catch (err) {
         console.error("❌ Login redirect failed:", err);
         return NextResponse.json({ error: "Failed to start login flow" }, { status: 500 });

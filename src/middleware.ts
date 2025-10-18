@@ -1,6 +1,21 @@
 // **__ Edge-safe global middleware for auth and session validation __**
 import { NextRequest, NextResponse } from "next/server";
 import { SID_COOKIE } from "@/lib/cookies";
+import { isProtectedPath } from "@/config/protectedRoutes";
+import {
+  isPublicPath,
+  addSecurityHeaders,
+  buildLoginRedirect,
+  clearSidCookie,
+  validateSessionViaApi,
+} from "@/lib/middlewareUtils";
+
+// Note: do NOT import server-only modules (crypto, redis, etc.) in middleware — it runs in the Edge Runtime.
+// For session validation we call a server-side API endpoint (/api/session/validate) below.
+
+// Small in-memory cache to reduce validate endpoint calls when the same sid is used repeatedly.
+const sessionCache = new Map<string, { valid: boolean; exp: number }>();
+const SESSION_CACHE_TTL_MS = 5_000; // 5 seconds
 
 const publicPaths = [
     "/",
@@ -11,50 +26,52 @@ const publicPaths = [
     "/_next",
 ];
 
-function addSecurityHeaders(res: NextResponse) {
-    // Common security headers recommended for production
-    res.headers.set("X-Frame-Options", "DENY");
-    res.headers.set("X-Content-Type-Options", "nosniff");
-    res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-    res.headers.set("Cross-Origin-Opener-Policy", "same-origin");
-    res.headers.set("Cross-Origin-Embedder-Policy", "unsafe-none");
-    res.headers.set("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
-
-    // Only set HSTS and a conservative CSP in production to avoid breaking local dev/hot-reload
-    if (process.env.NODE_ENV === "production") {
-        // HSTS for one year
-        res.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
-
-        // A conservative Content-Security-Policy that allows the app itself, images, and trusted CDNs when needed.
-        // Adjust if your app loads scripts/styles from external CDNs.
-        res.headers.set(
-            "Content-Security-Policy",
-            "default-src 'self'; img-src 'self' data: https:; connect-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:"
-        );
-    }
-
-    return res;
-}
-
 export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
 
-    // Allow public paths
-    if (publicPaths.some((p) => pathname.startsWith(p))) {
+    // Allow public paths: use helper (treats '/' as exact match)
+    if (isPublicPath(pathname)) {
         const res = NextResponse.next();
+        return addSecurityHeaders(res);
+    }
+
+    // If the path is not configured as protected, allow through
+    if (!isProtectedPath(pathname)) {
+        const res = NextResponse.next();
+        console.info(`middleware: path not protected, allowing ${pathname}`);
         return addSecurityHeaders(res);
     }
 
     // Extract session cookie
     const sid = req.cookies.get(SID_COOKIE)?.value;
+    const maskedSid = sid ? `${sid.slice(0,6)}..${sid.slice(-2)}` : undefined;
 
     // If there's no session cookie we need the user to login
     if (!sid) {
-        const loginUrl = new URL("/login", req.url);
-        loginUrl.searchParams.set("redirect", pathname);
-        const res = NextResponse.redirect(loginUrl);
+        console.info(`middleware: unauthenticated access to ${pathname}, redirecting to login`);
+        const res = buildLoginRedirect(req, pathname);
         return addSecurityHeaders(res);
     }
+
+    // Check session cache
+    const cached = sessionCache.get(sid);
+    const now = Date.now();
+    if (cached && cached.exp > now) {
+        console.info(`middleware: session valid for ${maskedSid} (from cache)`);
+    } else {
+        // Validate session via helper that calls /api/session/validate
+        const valid = await validateSessionViaApi(req);
+        if (!valid) {
+            console.info(`middleware: session invalid/expired for ${maskedSid}, redirecting to login`);
+            const res = buildLoginRedirect(req, pathname);
+            clearSidCookie(res);
+            return addSecurityHeaders(res);
+        }
+        console.info(`middleware: session validated for ${maskedSid}`);
+        sessionCache.set(sid, { valid: true, exp: now + SESSION_CACHE_TTL_MS });
+    }
+
+    console.info(`middleware: sid present for ${pathname} (sid=${maskedSid}), allowing`);
 
     // Do not perform an expensive validation/refresh on every navigation here.
     // The SessionProvider on the client performs validation once at app load and
