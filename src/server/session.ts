@@ -2,7 +2,7 @@
 // Server-side session management using Redis (signed + encrypted payloads)
 
 import crypto from "crypto";
-import { SignJWT, jwtVerify, JWTPayload } from "jose";
+import { SignJWT, jwtVerify, JWTPayload, CompactEncrypt, compactDecrypt } from "jose";
 import { envServer as env } from "@/config/env.server";
 import { redis } from "@/server/redis"; // shared Redis client
 
@@ -22,48 +22,72 @@ export interface SessionData {
 export const sessKey = (sid: string) => `sess:${sid}`;
 export const userKey = (sub: string) => `user:${sub}`;
 
-// Derived symmetric key for AES-256-GCM from SESSION_SECRET
-const ENC_KEY = crypto.createHash("sha256").update(env.SESSION_SECRET).digest(); // 32 bytes
-const JWT_SECRET = new TextEncoder().encode(env.SESSION_SECRET);
+// -- Cryptographic key material --
+// Best practice: separate signing and encryption keys. Derive subkeys from the
+// canonical master `SESSION_SECRET` using HKDF so operators can keep a single
+// secret while still getting key separation.
 
-function encryptToken(plain: string): string {
-    const iv = crypto.randomBytes(12); // 96-bit nonce for GCM
-    const cipher = crypto.createCipheriv("aes-256-gcm", ENC_KEY, iv);
-    const ct = Buffer.concat([cipher.update(Buffer.from(plain, "utf8")), cipher.final()]);
-    const tag = cipher.getAuthTag();
-    // store as base64(iv || tag || ciphertext)
-    return Buffer.concat([iv, tag, ct]).toString("base64");
+// `env` is produced by EnvServerSchema.parse(process.env) in `env.server.ts`.
+// That schema enforces that SESSION_SECRET exists and is at least 32 chars,
+// so it's safe to assert its presence here for TypeScript.
+const MASTER_SECRET = Buffer.from(env.SESSION_SECRET!, "utf8");
+// Derive a 32-byte signing key (for HS256) and a 32-byte encryption key (for A256GCM)
+const SIGNING_KEY_BYTES = Buffer.from(
+    crypto.hkdfSync("sha256", MASTER_SECRET, Buffer.from("session-sign-salt"), Buffer.from("session-sign"), 32)
+);
+const ENCRYPTION_KEY_BYTES = Buffer.from(
+    crypto.hkdfSync("sha256", MASTER_SECRET, Buffer.from("session-enc-salt"), Buffer.from("session-enc"), 32)
+);
+
+// Key materials in forms usable by `jose`
+const JWT_SECRET = crypto.createSecretKey(SIGNING_KEY_BYTES); // KeyObject accepted by jose for HMAC
+const ENC_KEY = crypto.createSecretKey(ENCRYPTION_KEY_BYTES);
+
+// JWE helpers (uses jose CompactEncrypt / compactDecrypt)
+export async function jweEncrypt(plain: string): Promise<string> {
+    // Protect header includes alg=dir (direct symmetric) and AES-GCM enc
+    return await new CompactEncrypt(Buffer.from(plain, "utf8"))
+        .setProtectedHeader({ alg: "dir", enc: "A256GCM", typ: "JWE" })
+        .encrypt(ENC_KEY);
 }
 
-function decryptToken(payload: string): string {
-    const buf = Buffer.from(payload, "base64");
-    if (buf.length < 12 + 16) throw new Error("invalid payload");
-    const iv = buf.slice(0, 12);
-    const tag = buf.slice(12, 28);
-    const ct = buf.slice(28);
-    const decipher = crypto.createDecipheriv("aes-256-gcm", ENC_KEY, iv);
-    decipher.setAuthTag(tag);
-    const pt = Buffer.concat([decipher.update(ct), decipher.final()]);
-    return pt.toString("utf8");
+export async function jweDecrypt(token: string): Promise<string> {
+    const { plaintext } = await compactDecrypt(token, ENC_KEY);
+    return Buffer.from(plaintext).toString("utf8");
+}
+
+// Helpers to sign/verify JWS (exposed for tests)
+export async function signPayload(data: SessionData): Promise<string> {
+    return await new SignJWT(data as unknown as JWTPayload)
+        .setProtectedHeader({ alg: "HS256" })
+        .setIssuedAt()
+        .setExpirationTime(Math.floor(Date.now() / 1000) + SESSION_TTL)
+        .sign(JWT_SECRET);
+}
+
+export async function verifyJWS(token: string): Promise<SessionData> {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    return payload as unknown as SessionData;
 }
 
 /**
  * createSession
- * - Signs session payload with JWS (HS256) and encrypts it with AES-GCM
+ * - Signs session payload with JWS (HS256) and encrypts it with JWE (A256GCM)
  * - Stores encrypted blob under `sess:{sid}` and reverse mapping `user:{sub}` -> sid
- * - Uses a small Redis Lua script to atomically set both keys and delete any previous session for the user
+ * - Uses WATCH/MULTI to atomically set both keys and delete any previous session for the user
  */
 export async function createSession(data: SessionData): Promise<string> {
     const sid = crypto.randomUUID();
 
-    // Sign payload into a compact JWS
+    // Sign payload into a compact JWS (HMAC-SHA256)
     const token = await new SignJWT(data as unknown as JWTPayload)
         .setProtectedHeader({ alg: "HS256" })
         .setIssuedAt()
         .setExpirationTime(Math.floor(Date.now() / 1000) + SESSION_TTL)
         .sign(JWT_SECRET);
 
-    const encrypted = encryptToken(token);
+    // Encrypt the signed JWS using JWE (Compact Serialization)
+    const encrypted = await jweEncrypt(token);
 
     const userK = userKey(data.sub);
     const maxRetries = 5;
@@ -124,7 +148,7 @@ export async function createSession(data: SessionData): Promise<string> {
 
 /**
  * getSession
- * - Reads encrypted blob from Redis, decrypts it, verifies the JWS and returns SessionData
+ * - Reads encrypted blob from Redis, decrypts it (JWE), verifies the JWS and returns SessionData
  */
 export async function getSession(sid: string): Promise<SessionData | null> {
     if (!sid) return null;
@@ -133,7 +157,7 @@ export async function getSession(sid: string): Promise<SessionData | null> {
     if (!raw) return null;
 
     try {
-        const jws = decryptToken(raw);
+        const jws = await jweDecrypt(raw);
         const { payload } = await jwtVerify(jws, JWT_SECRET);
         return payload as unknown as SessionData;
     } catch (err) {

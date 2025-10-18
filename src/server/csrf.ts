@@ -13,3 +13,4 @@ export function generateCsrfToken(): string {
 export function validateCsrfToken(cookieToken?: string | undefined, headerToken?: string | null): boolean {
     return !!cookieToken && !!headerToken && cookieToken === headerToken;
 }
+
