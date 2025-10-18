@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession, destroySession } from "@/server/session";
 import { SID_COOKIE } from "@/lib/cookies";
+import { logger } from "@/lib/logger";
 
 /**
  * POST /api/session/validate
@@ -16,18 +17,17 @@ export async function POST(req: NextRequest) {
 
         const session = await getSession(sid);
         if (!session) {
-            console.warn("⚠️ Invalid session ID:", sid);
             return NextResponse.json({ valid: false, expired: false });
         }
 
         const expired = Date.now() > session.expires_at;
-        console.log(
+        logger.info(
             `🧩 Session validation — sid: ${sid}, user: ${session.username}, expired: ${expired}`
         );
 
-        return NextResponse.json({ valid: !expired, expired });
+        return NextResponse.json({ valid: !expired, expired, username: session.username, roles: session.roles ?? [] });
     } catch (err) {
-        console.error("❌ Session validation error:", err);
+        logger.error("❌ Session validation error:", err);
         return NextResponse.json({ valid: false, expired: false });
     }
 }
@@ -52,9 +52,10 @@ export async function GET(req: NextRequest) {
             valid: true,
             expires_at: session.expires_at,
             username: session.username,
+            roles: session.roles ?? [],
         });
     } catch (err) {
-        console.error("/api/session/validate error:", err);
+        logger.error("/api/session/validate error:", err);
         return NextResponse.json({ valid: false }, { status: 500 });
     }
 }

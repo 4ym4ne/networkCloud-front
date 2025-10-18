@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { SignJWT, jwtVerify, JWTPayload, CompactEncrypt, compactDecrypt } from "jose";
 import { envServer as env } from "@/config/env.server";
 import { redis } from "@/server/redis"; // shared Redis client
+import { logger } from "@/lib/logger";
 
 // TTL in seconds (default from env)
 const SESSION_TTL = env.SESSION_TTL ?? 60 * 60 * 24 * 7;
@@ -139,7 +140,7 @@ export async function createSession(data: SessionData): Promise<string> {
             }
 
             // On non-retryable errors, surface them
-            console.error("Failed to create session in Redis (attempt):", err);
+            logger.error("Failed to create session in Redis (attempt):", err);
             throw err;
         }
     }
@@ -162,7 +163,7 @@ export async function getSession(sid: string): Promise<SessionData | null> {
         const { payload } = await jwtVerify(jws, JWT_SECRET);
         return payload as unknown as SessionData;
     } catch (err) {
-        console.warn("Failed to decrypt/verify session payload (will delete):", sid, err);
+        logger.warn("Failed to decrypt/verify session payload (will delete):", sid, err);
         try {
             await redis.del(sessKey(sid));
         } catch {
@@ -185,7 +186,7 @@ export async function destroySession(sid: string): Promise<void> {
     try {
         await redis.del(sessKey(sid));
     } catch (e) {
-        console.warn("Failed to delete session payload:", sid, e);
+        logger.warn("Failed to delete session payload:", sid, e);
     }
 
     if (!session) return;
@@ -197,7 +198,7 @@ export async function destroySession(sid: string): Promise<void> {
             await redis.del(userKey(session.sub));
         }
     } catch (e) {
-        console.warn("Failed to cleanup user mapping for session:", sid, e);
+        logger.warn("Failed to cleanup user mapping for session:", sid, e);
     }
 }
 
@@ -214,7 +215,7 @@ export async function rotateSession(_oldSid: string, data: SessionData): Promise
             await redis.del(sessKey(_oldSid));
         }
     } catch (e) {
-        console.warn("rotateSession: failed to remove old sid", _oldSid, e);
+        logger.warn("rotateSession: failed to remove old sid", _oldSid, e);
     }
 
     return newSid;

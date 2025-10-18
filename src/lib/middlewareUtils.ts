@@ -1,6 +1,7 @@
-// ...new file...
 import { NextRequest, NextResponse } from "next/server";
 import { SID_COOKIE } from "@/lib/cookies";
+import { getProtectedRule } from "@/config/protectedRoutes";
+import { logger } from "@/lib/logger";
 
 export const defaultPublicPaths = [
   "/",
@@ -55,11 +56,16 @@ export function clearSidCookie(res: NextResponse) {
   res.cookies.set(SID_COOKIE, "", { httpOnly: true, path: "/", maxAge: 0 });
 }
 
-/**
- * Validate session by calling server-side endpoint /api/session/validate
- * For middleware (Edge runtime) we must forward the cookie header.
- */
-export async function validateSessionViaApi(req: NextRequest): Promise<boolean> {
+export type SessionValidationResult =
+  | false
+  | {
+      valid: boolean;
+      expired?: boolean;
+      username?: string;
+      roles?: string[];
+    };
+
+export async function validateSessionViaApi(req: NextRequest): Promise<SessionValidationResult> {
   const validateUrl = new URL("/api/session/validate", req.nextUrl.origin).toString();
   const cookieHeader = req.headers.get("cookie") || "";
   try {
@@ -73,10 +79,62 @@ export async function validateSessionViaApi(req: NextRequest): Promise<boolean> 
 
     if (!resp.ok) return false;
     const payload = await resp.json();
-    return !!(payload && payload.valid);
+    // return the full payload so callers can check roles/username
+    return payload as unknown as { valid: boolean; expired?: boolean; username?: string; roles?: string[] };
   } catch (err) {
-    console.warn("validateSessionViaApi error:", err);
+    logger.warn("validateSessionViaApi error:", err);
     return false;
   }
 }
 
+// --- New helper: authorizeRequest ------------------------------------------------
+// Centralize protected-path authorization logic so middleware uses a single function.
+// Returns a NextResponse when the request should be responded to immediately
+// (redirect to login or a 403 response). Returns null when the request should continue.
+
+const sessionCache = new Map<string, { valid: boolean; exp: number }>();
+const SESSION_CACHE_TTL_MS = 5_000; // 5 seconds
+
+export async function authorizeRequest(req: NextRequest, pathname: string): Promise<NextResponse | null> {
+  // Check if path is protected
+  const rule = getProtectedRule(pathname);
+  if (!rule) return null; // not protected
+
+  // Extract sid
+  const sid = req.cookies.get(SID_COOKIE)?.value;
+  if (!sid) {
+    return buildLoginRedirect(req, pathname);
+  }
+
+  // Check cache
+  const now = Date.now();
+  const cached = sessionCache.get(sid);
+  if (cached && cached.exp > now) {
+    if (!cached.valid) return buildLoginRedirect(req, pathname);
+    return null; // allowed
+  }
+
+  // Validate via server API
+  const validation = await validateSessionViaApi(req);
+  if (!validation || !validation.valid) {
+    const res = buildLoginRedirect(req, pathname);
+    clearSidCookie(res);
+    // cache negative result briefly
+    sessionCache.set(sid, { valid: false, exp: now + SESSION_CACHE_TTL_MS });
+    return res;
+  }
+
+  // cache success
+  sessionCache.set(sid, { valid: true, exp: now + SESSION_CACHE_TTL_MS });
+
+  // Enforce roles if rule requires
+  if (typeof rule !== "string" && rule.roles && rule.roles.length > 0) {
+    const userRoles = validation.roles ?? [];
+    const hasRole = rule.roles.some((r) => userRoles.includes(r));
+    if (!hasRole) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
+  return null; // allowed
+}

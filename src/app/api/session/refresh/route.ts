@@ -6,6 +6,7 @@ import { SID_COOKIE, CSRF_COOKIE } from "@/lib/cookies";
 import { refreshToken as oidcRefresh } from "@/server/oidc";
 import { validateCsrfToken, generateCsrfToken } from "@/server/csrf";
 import { auditAuthEvent } from "@/server/audit";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
     try {
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
         const csrfValid = validateCsrfToken(csrfCookie, csrfHeader) || (!!csrfCookie && !csrfHeader && originMatches);
 
         if (!csrfValid) {
-            console.warn('CSRF validation failed for /api/session/refresh — details:', {
+            logger.warn('CSRF validation failed for /api/session/refresh — details:', {
                 cookiePresent: !!csrfCookie,
                 headerPresent: !!csrfHeader,
                 originHeader,
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
 
         const session = await getSession(sid);
         if (!session?.refresh_token) {
-            console.warn(`⚠️ Invalid session ${sid} — missing refresh token`);
+            logger.warn(`⚠️ Invalid session ${sid} — missing refresh token`);
             await destroySession(sid);
             await auditAuthEvent({ type: 'refresh_failure', sid, username: session?.username, ip, reason: 'missing_refresh_token', outcome: 'failed' });
             return NextResponse.json({ error: "No valid session" }, { status: 401 });
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
         try {
             refreshed = await oidcRefresh(session.refresh_token);
         } catch (err) {
-            console.error("❌ Token refresh failed:", err);
+            logger.error("❌ Token refresh failed:", err);
             await destroySession(sid); // Clean up invalid sessions
             await auditAuthEvent({ type: 'refresh_failure', sid, username: session?.username, ip, reason: 'token_refresh_failed', meta: { err: String(err) }, outcome: 'failed' });
             return NextResponse.json({ error: "Token refresh failed" }, { status: 401 });
@@ -94,7 +95,7 @@ export async function POST(req: NextRequest) {
             roles: session.roles,
         });
 
-        console.log(`🔄 Session rotated for user ${session.username}: ${sid} → ${newSid}`);
+        logger.info(`🔄 Session rotated for user ${session.username}: ${sid} → ${newSid}`);
 
         // Audit refresh success
         await auditAuthEvent({ type: 'refresh_success', sid: newSid, username: session.username, sub: session.sub, ip, outcome: 'ok' });
@@ -120,12 +121,12 @@ export async function POST(req: NextRequest) {
             });
         } catch (e) {
             // non-fatal
-            console.warn('Failed to rotate CSRF token on refresh', e);
+            logger.warn('Failed to rotate CSRF token on refresh', e);
         }
 
         return res;
     } catch (err) {
-        console.error("❌ Unexpected refresh error:", err);
+        logger.error("❌ Unexpected refresh error:", err);
         await auditAuthEvent({ type: 'refresh_failure', reason: 'exception', meta: { message: String(err) } });
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }

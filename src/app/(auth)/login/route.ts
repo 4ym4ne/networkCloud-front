@@ -5,6 +5,7 @@ import { createPkceSession, buildAuthorizationUrl } from "@/server/oidc";
 import { getSession } from "@/server/session";
 import { SID_COOKIE } from "@/lib/cookies";
 import { redis } from "@/server/redis";
+import { logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
     try {
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
         if (sid) {
             const existing = await getSession(sid);
             if (existing && Date.now() < existing.expires_at) {
-                console.log(`✅ Already logged in as ${existing.username} — redirecting to /`);
+                logger.info(`✅ Already logged in as ${existing.username} — redirecting to /`);
                 return NextResponse.redirect(new URL("/", req.url));
             }
         }
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
         // Redirect user to Keycloak auth endpoint
         return NextResponse.redirect(authUrl);
     } catch (err) {
-        console.error("❌ Login redirect failed:", err);
+        logger.error("❌ Login redirect failed:", err);
         return NextResponse.json({ error: "Failed to start login flow" }, { status: 500 });
     }
 }

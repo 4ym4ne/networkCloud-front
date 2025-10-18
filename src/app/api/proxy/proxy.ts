@@ -3,6 +3,7 @@ import { getSession } from "@/server/session";
 import { validateCsrfToken } from "@/server/csrf";
 import { envServer as env } from "@/config/env.server";
 import { SID_COOKIE, CSRF_COOKIE } from "@/lib/cookies";
+import { logger } from "@/lib/logger";
 
 /**
  * Secure API Proxy (Next.js BFF → Spring Cloud Gateway)
@@ -82,7 +83,7 @@ export async function handler(
             headers: { "content-type": contentType },
         });
     } catch (err) {
-        console.error("❌ Proxy error:", err);
+        logger.error("❌ Proxy error:", err);
         return NextResponse.json({ error: "Internal proxy error" }, { status: 500 });
     }
 }

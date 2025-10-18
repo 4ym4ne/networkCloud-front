@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/server/services/user.service";
 import { SID_COOKIE } from "@/lib/cookies";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
     try {
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
             expiresAt: user.expiresAt,
         });
     } catch (err) {
-        console.error("❌ Failed to fetch user:", err);
+        logger.error("❌ Failed to fetch user:", err);
         return NextResponse.json({error: "Internal error"}, {status: 500});
     }
 }

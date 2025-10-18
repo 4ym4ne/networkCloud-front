@@ -5,6 +5,7 @@ import { discovery } from "openid-client";
 import crypto from "crypto";
 import { jwtVerify, createRemoteJWKSet } from "jose";
 import { envServer as env } from "@/config/env.server";
+import { logger } from "@/lib/logger";
 
 // ⚙️ DEV ONLY: allow self-signed HTTPS for localhost
 if (process.env.NODE_ENV !== "production") {
@@ -27,7 +28,7 @@ export async function getKeycloakConfig() {
                 return cfg;
             })
             .catch((err) => {
-                console.error("❌ Failed to discover Keycloak configuration:", err);
+                logger.error("❌ Failed to discover Keycloak configuration:", err);
                 throw err;
             });
     }

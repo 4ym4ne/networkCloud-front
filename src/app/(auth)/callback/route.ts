@@ -6,6 +6,7 @@ import { generateCsrfToken } from "@/server/csrf";
 import { SID_COOKIE, CSRF_COOKIE } from "@/lib/cookies";
 import { redis } from "@/server/redis";
 import { auditAuthEvent } from "@/server/audit";
+import { logger } from "@/lib/logger";
 
 /**
  * ✅ Callback Route — handles the Keycloak redirect (PKCE token exchange)
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
 
         // 1️⃣ --- Error Handling ---
         if (error) {
-            console.error("❌ OIDC error:", error);
+            logger.error("❌ OIDC error:", error);
             await auditAuthEvent({ type: "login_failure", ip, reason: String(error), meta: { state } });
             return NextResponse.json({ error }, { status: 400 });
         }
@@ -71,7 +72,7 @@ export async function GET(req: NextRequest) {
         try {
             exchangeResult = await exchangeCodeForTokens(code, codeVerifier, state, nonce);
         } catch (err) {
-            console.error("❌ Token exchange error:", err);
+            logger.error("❌ Token exchange error:", err);
             await auditAuthEvent({ type: "login_failure", ip, reason: "token_exchange_failed", meta: { state } });
             return NextResponse.json({ error: "Token exchange failed" }, { status: 500 });
         }
@@ -124,10 +125,10 @@ export async function GET(req: NextRequest) {
         // Audit login success (pseudonymized)
         await auditAuthEvent({ type: "login_success", sub: userSub, username: (idTokenClaims && (idTokenClaims.preferred_username as string)) ?? (tokens?.preferred_username ?? undefined), sid, ip, outcome: "ok" });
 
-        console.log(`✅ User ${userSub} logged in — new session: ${sid}`);
+        logger.info(`✅ User ${userSub} logged in — new session: ${sid}`);
         return res;
     } catch (err) {
-        console.error("❌ Callback processing failed:", err);
+        logger.error("❌ Callback processing failed:", err);
         await auditAuthEvent({ type: "login_failure", reason: "exception", ip: req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip') ?? undefined, meta: { message: String(err) } });
         return NextResponse.json({ error: "Token exchange failed" }, { status: 500 });
     }

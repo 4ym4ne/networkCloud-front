@@ -1,6 +1,8 @@
 (async () => {
   try {
     const crypto = require('crypto');
+    const { logger } = require('../src/lib/logger');
+
     const SESSION_SECRET = process.env.SESSION_SECRET;
     if (!SESSION_SECRET) {
       throw new Error('Please set SESSION_SECRET env var (min 32 chars)');
@@ -29,30 +31,29 @@
 
     const SESSION_TTL = 60 * 60 * 24;
 
-    console.log('Signing payload...');
+    logger.info('Signing payload...');
     const jws = await new SignJWT(payload)
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
       .setExpirationTime(Math.floor(Date.now() / 1000) + SESSION_TTL)
       .sign(SIGNING_KEY);
 
-    console.log('Encrypting JWS to JWE...');
+    logger.info('Encrypting JWS to JWE...');
     const jwe = await new CompactEncrypt(Buffer.from(jws, 'utf8'))
       .setProtectedHeader({ alg: 'dir', enc: 'A256GCM', typ: 'JWE' })
       .encrypt(ENC_KEY);
 
-    console.log('Decrypting JWE...');
+    logger.info('Decrypting JWE...');
     const { plaintext } = await compactDecrypt(jwe, ENC_KEY);
     const jws2 = Buffer.from(plaintext).toString('utf8');
 
-    console.log('Verifying JWS...');
+    logger.info('Verifying JWS...');
     const { payload: verified } = await jwtVerify(jws2, SIGNING_KEY);
 
-    console.log('Verified payload:', verified);
-    console.log('Roundtrip success');
+    logger.info('Verified payload:', verified);
+    logger.info('Roundtrip success');
   } catch (err) {
-    console.error('Roundtrip failed:', err);
+    logger.error('Roundtrip failed:', err);
     process.exit(1);
   }
 })();
-

@@ -3,6 +3,7 @@
 import React, { createContext, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/apiFetch";
+import { logger } from "@/lib/logger";
 
 export type SessionUser = {
     sub?: string;
@@ -81,7 +82,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
                 sharedSessionLoaded = true;
             } catch (err: any) {
-                console.error("SessionProvider: failed to load session", err);
+                logger.error("SessionProvider: failed to load session", err);
                 setError(err?.message ?? String(err ?? "Unknown error"));
                 setUser(null);
             } finally {
@@ -127,7 +128,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
                 }, 5000);
             }
         } catch (err) {
-            console.error("SessionProvider.login failed", err);
+            logger.error("SessionProvider.login failed", err);
             loginGuardRef.current = false;
             setLoginInProgress(false);
         }

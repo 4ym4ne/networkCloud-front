@@ -3,6 +3,7 @@
 
 import { createClient } from "redis";
 import { envServer as env } from "@/config/env.server";
+import { logger } from "@/lib/logger";
 
 let redisClient: ReturnType<typeof createClient> | null = null;
 
@@ -14,13 +15,13 @@ export function getRedisClient() {
         redisClient = createClient({ url: env.REDIS_URL });
 
         redisClient.on("error", (err) => {
-            console.error("❌ Redis connection error:", err);
+            logger.error("❌ Redis connection error:", err);
         });
 
         redisClient
             .connect()
-            .then(() => console.log("✅ Redis connected (shared instance)"))
-            .catch((err) => console.error("❌ Redis connection failed:", err));
+            .then(() => logger.info("✅ Redis connected (shared instance)"))
+            .catch((err) => logger.error("❌ Redis connection failed:", err));
     }
 
     return redisClient;

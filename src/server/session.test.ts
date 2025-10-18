@@ -1,6 +1,7 @@
 import assert from "assert";
 import { signPayload, jweEncrypt, jweDecrypt, verifyJWS } from "./session";
 import type { SessionData } from "./session";
+import { logger } from "@/lib/logger";
 
 async function run() {
     const data: SessionData = {
@@ -12,18 +13,18 @@ async function run() {
         expires_at: Date.now() + 1000 * 60 * 60,
     };
 
-    console.log("Signing payload...");
+    logger.info("Signing payload...");
     const jws = await signPayload(data);
-    console.log("Signed JWS length:", jws.length);
+    logger.info("Signed JWS length:", jws.length);
 
-    console.log("Encrypting JWS to JWE...");
+    logger.info("Encrypting JWS to JWE...");
     const jwe = await jweEncrypt(jws);
-    console.log("Encrypted JWE length:", jwe.length);
+    logger.info("Encrypted JWE length:", jwe.length);
 
-    console.log("Decrypting JWE...");
+    logger.info("Decrypting JWE...");
     const jws2 = await jweDecrypt(jwe);
 
-    console.log("Verifying JWS...");
+    logger.info("Verifying JWS...");
     const payload = await verifyJWS(jws2);
 
     assert.strictEqual(payload.sub, data.sub);
@@ -31,11 +32,10 @@ async function run() {
     assert.strictEqual(payload.access_token, data.access_token);
     assert.strictEqual(payload.refresh_token, data.refresh_token);
 
-    console.log("Roundtrip success: payload verified and matches original.");
+    logger.info("Roundtrip success: payload verified and matches original.");
 }
 
 run().catch((err) => {
-    console.error("Test failed:", err);
+    logger.error("Test failed:", err);
     process.exit(1);
 });
-

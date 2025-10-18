@@ -7,6 +7,7 @@ import { destroySession, getSession } from "@/server/session";
 import { SID_COOKIE, PKCE_COOKIE, CSRF_COOKIE } from "@/lib/cookies";
 import { validateCsrfToken } from "@/server/csrf";
 import { auditAuthEvent } from "@/server/audit";
+import { logger } from "@/lib/logger";
 
 // GET /logout — serve a tiny page that auto-submits a POST with CSRF token populated
 export async function GET(req: NextRequest) {
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
 
         const csrfValid = validateCsrfToken(csrfCookie, csrfHeader) || (!!csrfCookie && !csrfHeader && originMatches);
         if (!csrfValid) {
-            console.warn('GET /logout blocked: CSRF validation failed (silent logout requires same-origin or CSRF token)');
+            logger.warn('GET /logout blocked: CSRF validation failed (silent logout requires same-origin or CSRF token)');
             await auditAuthEvent({ type: 'logout', ip, reason: 'csrf_invalid', outcome: 'failed' });
             return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 });
         }
@@ -53,7 +54,7 @@ export async function GET(req: NextRequest) {
                         // audit individual token revocation
                         await auditAuthEvent({ type: 'token_revoked', sid, ip, outcome: 'ok', meta: { hint } });
                     } catch (err) {
-                        console.warn('⚠️ Failed to revoke token at Keycloak:', err);
+                        logger.warn('⚠️ Failed to revoke token at Keycloak:', err);
                         await auditAuthEvent({ type: 'token_revocation_failed', sid, ip, reason: String(err), meta: { hint } });
                     }
                 };
@@ -73,10 +74,10 @@ export async function GET(req: NextRequest) {
 
         await auditAuthEvent({ type: 'logout', sid, ip, outcome: 'ok' });
 
-        console.log('Silent GET /logout completed, sid:', sid ?? '<missing>');
+        logger.info('Silent GET /logout completed, sid:', sid ?? '<missing>');
         return res;
     } catch (err) {
-        console.error('❌ Silent GET /logout failed:', err);
+        logger.error('❌ Silent GET /logout failed:', err);
         await auditAuthEvent({ type: 'logout', reason: 'exception', outcome: 'failed', meta: { message: String(err) } });
         return NextResponse.json({ error: 'Logout failed' }, { status: 500 });
     }
@@ -122,7 +123,7 @@ export async function POST(req: NextRequest) {
         const csrfValid = validateCsrfToken(csrfCookie, csrfHeader) || (!!csrfCookie && !csrfHeader && originMatches);
 
         if (!csrfValid) {
-            console.warn('CSRF validation failed for /logout — details:', {
+            logger.warn('CSRF validation failed for /logout — details:', {
                 cookiePresent: !!csrfCookie,
                 headerPresent: !!csrfHeader,
                 originHeader,
@@ -158,7 +159,7 @@ export async function POST(req: NextRequest) {
                         });
                         await auditAuthEvent({ type: 'token_revoked', sid, ip, outcome: 'ok', meta: { hint } });
                     } catch (err) {
-                        console.warn("⚠️ Failed to revoke token at Keycloak:", err);
+                        logger.warn("⚠️ Failed to revoke token at Keycloak:", err);
                         await auditAuthEvent({ type: 'token_revocation_failed', sid, ip, reason: String(err), meta: { hint } });
                     }
                 };
@@ -189,10 +190,10 @@ export async function POST(req: NextRequest) {
         // Debug: log whether id_token_hint will be sent and the final logout URL (do not log entire id_token)
         try {
             const hasIdToken = !!session?.id_token;
-            console.log(`Logout: id_token_hint present=${hasIdToken}`);
+            logger.info(`Logout: id_token_hint present=${hasIdToken}`);
             // log truncated id_token for debugging (first 10 chars) to avoid leaking sensitive token in full
-            if (hasIdToken) console.log(`Logout: id_token_hint startsWith=${session!.id_token!.slice(0,10)}...`);
-            console.log(`Logout: redirecting to Keycloak logout URL: ${kcLogout.toString()}`);
+            if (hasIdToken) logger.info(`Logout: id_token_hint startsWith=${session!.id_token!.slice(0,10)}...`);
+            logger.info(`Logout: redirecting to Keycloak logout URL: ${kcLogout.toString()}`);
         } catch (e) {
             /* ignore logging errors */
         }
@@ -222,14 +223,14 @@ export async function POST(req: NextRequest) {
         res.cookies.set({ name: CSRF_COOKIE, value: "", httpOnly: false, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: 0 });
 
         const sidLabel = sid ?? "<missing>";
-        console.log(`🗑️ Cleared session cookie + Redis sid:${sidLabel}`);
-        console.log(`🗑️ Deleted session cookie + Redis sid:${sidLabel}`);
+        logger.info(`🗑️ Cleared session cookie + Redis sid:${sidLabel}`);
+        logger.info(`🗑️ Deleted session cookie + Redis sid:${sidLabel}`);
 
         await auditAuthEvent({ type: 'logout', sid, ip, outcome: 'ok' });
 
         return res;
     } catch (err) {
-        console.error("❌ Logout failed:", err);
+        logger.error("❌ Logout failed:", err);
         await auditAuthEvent({ type: 'logout', reason: 'exception', outcome: 'failed', meta: { message: String(err) } });
         return NextResponse.json({ error: "Logout failed" }, { status: 500 });
     }
