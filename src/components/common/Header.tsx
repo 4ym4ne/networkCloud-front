@@ -25,7 +25,7 @@ import {
     LayoutDashboard
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSession } from "@/hooks/useSession";
+import { useSession } from "@/features/auth/client";
 import {
     Sheet,
     SheetContent,

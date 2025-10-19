@@ -1,7 +1,6 @@
 import crypto from "crypto";
-import { redis } from "@/server/redis";
-import { envServer } from "@/config/env.server";
-import { logger } from "@/lib/logger";
+import { envServer } from "@/core/config/env.server";
+import { logger } from "@/core/logging/logger";
 
 export type AuthEventType =
     | "login_success"
@@ -78,16 +77,6 @@ export async function auditAuthEvent(event: {
 
         // Console output (structured) for immediate debugging/ops visibility
         logger.info("AUDIT", JSON.stringify(entry));
-
-        // Persist to Redis list for durability and later analysis (optional)
-        try {
-            await redis.rPush("audit:auth", JSON.stringify(entry));
-            // Keep list bounded (trim to last 5000 entries)
-            await redis.lTrim("audit:auth", -5000, -1);
-        } catch (err) {
-            // Non-fatal: log but continue
-            logger.warn("AUDIT: failed to persist to Redis:", err);
-        }
 
         return entry;
     } catch (err) {

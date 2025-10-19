@@ -29,7 +29,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { useSession } from "@/hooks/useSession"
+import { useSession } from "@/features/auth/client"
 
 export function NavUser() {
   const { isMobile } = useSidebar()

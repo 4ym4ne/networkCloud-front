@@ -5,7 +5,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { useSession } from "@/hooks/useSession";
+import { useSession } from "@/features/auth/client";
 
 export default function TopBar({ className }: { className?: string }) {
   const { user, loading, login, logout, loginInProgress } = useSession();

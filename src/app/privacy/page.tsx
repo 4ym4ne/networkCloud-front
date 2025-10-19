@@ -260,8 +260,9 @@ export default function PrivacyPage() {
                   <div>
                     <h4 className="font-semibold text-sm mb-2">Session Storage</h4>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      Sensitive session data is stored server-side in encrypted format using Redis. Session tokens are
-                      rotated regularly and expire after periods of inactivity for your security.
+                      Authentication is handled by NextAuth. We issue HTTP-only cookies that contain encrypted session claims,
+                      and refresh access tokens automatically to keep your account secure without persisting sensitive payloads
+                      in our database.
                     </p>
                   </div>
                   <div>
