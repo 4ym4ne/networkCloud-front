@@ -4,11 +4,13 @@ import * as React from "react"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 
 import { useIsMobile } from "@/hooks/use-mobile"
+import { Badge } from "@/components/ui/badge"
 import {
   Card,
   CardAction,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -125,12 +127,43 @@ export function ChartAreaInteractive() {
   const totalWinnings = filteredData.reduce((acc, curr) => acc + curr.winnings, 0)
   const totalLosses = filteredData.reduce((acc, curr) => acc + curr.losses, 0)
   const netProfit = totalWinnings - totalLosses
+  const roi = totalLosses === 0 ? 0 : (netProfit / totalLosses) * 100
+
+  const bestDay = filteredData.reduce(
+    (acc, item) => {
+      const net = item.winnings - item.losses
+      if (net > acc.net) {
+        return { date: item.date, net }
+      }
+      return acc
+    },
+    { date: filteredData[0]?.date ?? "", net: filteredData[0] ? filteredData[0].winnings - filteredData[0].losses : 0 }
+  )
+
+  const formatCurrency = (value: number, options?: Intl.NumberFormatOptions) =>
+    value.toLocaleString("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+      ...options,
+    })
+
+  const formatPercent = (value: number) =>
+    `${value > 0 ? "+" : ""}${value.toFixed(1)}%`
+
+  const netClass =
+    netProfit >= 0
+      ? "text-emerald-500 dark:text-emerald-400"
+      : "text-red-500 dark:text-red-400"
 
   return (
     <Card className="@container/card">
       <CardHeader>
         <div className="flex items-start justify-between">
           <div>
+            <Badge variant="outline" className="border-transparent bg-primary/10 text-primary">
+              Live analytics
+            </Badge>
             <CardTitle>Betting Performance</CardTitle>
             <CardDescription>
               <span className="hidden @[540px]/card:block">
@@ -140,8 +173,8 @@ export function ChartAreaInteractive() {
             </CardDescription>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-              ${netProfit.toLocaleString()}
+            <div className={`text-2xl font-bold ${netClass}`}>
+              {formatCurrency(netProfit)}
             </div>
             <div className="text-xs text-muted-foreground">Net Profit</div>
           </div>
@@ -259,6 +292,42 @@ export function ChartAreaInteractive() {
           </AreaChart>
         </ChartContainer>
       </CardContent>
+      <CardFooter className="grid gap-4 border-t border-border/40 bg-muted/20 px-2 py-4 sm:grid-cols-2 sm:px-6 sm:py-6 lg:grid-cols-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground/80">
+            Gross winnings
+          </p>
+          <p className="mt-1 text-sm font-semibold text-foreground">
+            {formatCurrency(totalWinnings)}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground/80">
+            Gross losses
+          </p>
+          <p className="mt-1 text-sm font-semibold text-foreground">
+            {formatCurrency(totalLosses)}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground/80">
+            ROI
+          </p>
+          <p className={`mt-1 text-sm font-semibold ${netClass}`}>
+            {formatPercent(roi)}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground/80">
+            Best day
+          </p>
+          <p className="mt-1 text-sm font-semibold text-foreground">
+            {bestDay.date
+              ? `${bestDay.date} • ${formatCurrency(bestDay.net, { maximumFractionDigits: 0 })}`
+              : "No data"}
+          </p>
+        </div>
+      </CardFooter>
     </Card>
   )
 }

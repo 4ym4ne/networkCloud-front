@@ -1,130 +1,130 @@
-import { IconTrendingUp } from "@tabler/icons-react"
-
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
-  CardAction,
+  CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { DollarSign, TrendingUp, Wallet, Target } from "lucide-react"
+import {
+  Activity,
+  Sparkles,
+  Target,
+  Trophy,
+} from "lucide-react"
 
 export function SectionCards() {
+  const cards = [
+    {
+      title: "Edge score",
+      period: "7d signal",
+      value: "3.4x",
+      change: "+0.8",
+      changeLabel: "vs baseline",
+      changeTone: "positive" as const,
+      description: "15 high-confidence plays queued by the AI co-pilot.",
+      progress: 72,
+      tag: "AI assist",
+      icon: Sparkles,
+    },
+    {
+      title: "Open positions",
+      period: "Live tickets",
+      value: "27",
+      change: "+9",
+      changeLabel: "added in the last 24h",
+      changeTone: "positive" as const,
+      description: "Covers 5 leagues • Peak exposure on NBA late slate.",
+      progress: 54,
+      tag: "Risk watch",
+      icon: Target,
+    },
+    {
+      title: "Win rate",
+      period: "30d",
+      value: "68.5%",
+      change: "+3.2%",
+      changeLabel: "month over month",
+      changeTone: "positive" as const,
+      description: "147 wins across 215 settled bets this period.",
+      progress: 68,
+      tag: "Performance",
+      icon: Activity,
+    },
+    {
+      title: "Realized profit",
+      period: "Year to date",
+      value: "$18,720",
+      change: "+$4,380",
+      changeLabel: "since last month",
+      changeTone: "positive" as const,
+      description: "Net ROI at 22.4% with variance within target band.",
+      progress: 74,
+      tag: "Growth",
+      icon: Trophy,
+    },
+  ]
+
+  const toneClasses: Record<"positive" | "negative" | "neutral", string> = {
+    positive: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    negative: "bg-red-500/10 text-red-500",
+    neutral: "bg-muted text-muted-foreground",
+  }
+
   return (
-    <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-br *:data-[slot=card]:shadow-lg lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-      <Card className="@container/card relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-green-500/10 to-transparent rounded-bl-full" />
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-green-500/10">
-              <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
-            </div>
-            <CardDescription>Total Balance</CardDescription>
-          </div>
-          <CardTitle className="text-3xl font-bold tabular-nums @[250px]/card:text-4xl">
-            $2,458.50
-          </CardTitle>
-          <CardAction>
-            <Badge variant="outline" className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
-              <IconTrendingUp className="text-green-600 dark:text-green-400" />
-              +15.2%
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Up from last month <IconTrendingUp className="size-4 text-green-600" />
-          </div>
-          <div className="text-muted-foreground">
-            Your available betting funds
-          </div>
-        </CardFooter>
-      </Card>
-
-      <Card className="@container/card relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-500/10 to-transparent rounded-bl-full" />
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-500/10">
-              <Target className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <CardDescription>Active Bets</CardDescription>
-          </div>
-          <CardTitle className="text-3xl font-bold tabular-nums @[250px]/card:text-4xl">
-            23
-          </CardTitle>
-          <CardAction>
-            <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-              <IconTrendingUp className="text-blue-600 dark:text-blue-400" />
-              +8 today
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Strong betting activity <IconTrendingUp className="size-4 text-blue-600" />
-          </div>
-          <div className="text-muted-foreground">
-            Total potential return: $3,245
-          </div>
-        </CardFooter>
-      </Card>
-
-      <Card className="@container/card relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-500/10 to-transparent rounded-bl-full" />
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-purple-500/10">
-              <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-            </div>
-            <CardDescription>Win Rate</CardDescription>
-          </div>
-          <CardTitle className="text-3xl font-bold tabular-nums @[250px]/card:text-4xl">
-            68.5%
-          </CardTitle>
-          <CardAction>
-            <Badge variant="outline" className="bg-purple-50 dark:bg-purple-950 border-purple-200 dark:border-purple-800">
-              <IconTrendingUp className="text-purple-600 dark:text-purple-400" />
-              +3.2%
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Above average performance <IconTrendingUp className="size-4 text-purple-600" />
-          </div>
-          <div className="text-muted-foreground">147 wins out of 215 bets</div>
-        </CardFooter>
-      </Card>
-
-      <Card className="@container/card relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-orange-500/10 to-transparent rounded-bl-full" />
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-orange-500/10">
-              <Wallet className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-            </div>
-            <CardDescription>Total Profit</CardDescription>
-          </div>
-          <CardTitle className="text-3xl font-bold tabular-nums @[250px]/card:text-4xl">
-            $1,847
-          </CardTitle>
-          <CardAction>
-            <Badge variant="outline" className="bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800">
-              <IconTrendingUp className="text-orange-600 dark:text-orange-400" />
-              +24.8%
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Excellent ROI this period <IconTrendingUp className="size-4 text-orange-600" />
-          </div>
-          <div className="text-muted-foreground">75% return on investment</div>
-        </CardFooter>
-      </Card>
+    <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+      {cards.map((card) => {
+        const Icon = card.icon
+        return (
+          <Card key={card.title} className="border border-border/50">
+            <CardHeader className="space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <CardDescription className="uppercase tracking-[0.35em] text-xs text-muted-foreground">
+                      {card.period}
+                    </CardDescription>
+                    <CardTitle className="mt-1 text-xl">
+                      {card.title}
+                    </CardTitle>
+                  </div>
+                </div>
+                <Badge variant="outline" className="border-transparent bg-muted/40 text-xs text-muted-foreground">
+                  {card.tag}
+                </Badge>
+              </div>
+              <div>
+                <p className="text-3xl font-bold tabular-nums text-foreground">
+                  {card.value}
+                </p>
+                <div className="mt-3 flex items-center gap-2 text-xs">
+                  <span className={`inline-flex items-center rounded-full px-2 py-1 font-semibold ${toneClasses[card.changeTone]}`}>
+                    {card.change}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {card.changeLabel}
+                  </span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-1.5 w-full rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary"
+                  style={{ width: `${card.progress}%` }}
+                />
+              </div>
+            </CardContent>
+            <CardFooter className="text-sm text-muted-foreground">
+              {card.description}
+            </CardFooter>
+          </Card>
+        )
+      })}
     </div>
   )
 }
