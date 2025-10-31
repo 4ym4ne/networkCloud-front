@@ -2,11 +2,12 @@
 
 import { useRouter } from "next/navigation"
 import {
+  IconBell,
   IconDotsVertical,
+  IconHistory,
   IconLogout,
+  IconUpload,
   IconUserCircle,
-  IconSettings,
-  IconWallet,
 } from "@tabler/icons-react"
 
 import {
@@ -59,7 +60,7 @@ export function NavUser() {
   }
 
   const handleLogout = async () => {
-      logout()
+    logout()
     router.push("/")
   }
 
@@ -117,17 +118,21 @@ export function NavUser() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => router.push('/settings')} className="cursor-pointer">
+              <DropdownMenuItem onClick={() => router.push('/dashboard')} className="cursor-pointer">
                 <IconUserCircle className="mr-2 h-4 w-4" />
-                Profile
+                Dashboard
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push('/wallet')} className="cursor-pointer">
-                <IconWallet className="mr-2 h-4 w-4" />
-                Wallet
+              <DropdownMenuItem onClick={() => router.push('/dashboard/pcap-upload')} className="cursor-pointer">
+                <IconUpload className="mr-2 h-4 w-4" />
+                PCAP Upload
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push('/settings')} className="cursor-pointer">
-                <IconSettings className="mr-2 h-4 w-4" />
-                Settings
+              <DropdownMenuItem onClick={() => router.push('/dashboard/history')} className="cursor-pointer">
+                <IconHistory className="mr-2 h-4 w-4" />
+                Analysis History
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/dashboard/notifications')} className="cursor-pointer">
+                <IconBell className="mr-2 h-4 w-4" />
+                Notifications
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

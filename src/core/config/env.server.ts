@@ -14,7 +14,7 @@ const EnvServerSchema = z.object({
 
     // --- Spring / OPA ---
     SPRING_BASE_URL: urlValidator.optional(),
-    API_GATEWAY_URL: urlValidator.optional(),
+    API_GATEWAY_URL: urlValidator,
     OPA_URL: urlValidator.optional(),
 
     // --- Sessions ---

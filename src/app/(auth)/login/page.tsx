@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ function sanitizeRedirect(value: string | null): string | undefined {
     return "/";
 }
 
-export default function LoginPage() {
+function LoginPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { status } = useSession();
@@ -62,5 +62,24 @@ export default function LoginPage() {
                 </Button>
             </div>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense
+            fallback={
+                <div className="flex h-screen items-center justify-center">
+                    <div className="flex flex-col items-center gap-4 rounded-lg border bg-card px-8 py-10 shadow-lg">
+                        <h1 className="text-xl font-semibold">Preparing sign-in…</h1>
+                        <p className="text-sm text-muted-foreground text-center max-w-xs">
+                            Loading your session. If this message persists, refresh the page.
+                        </p>
+                    </div>
+                </div>
+            }
+        >
+            <LoginPageContent />
+        </Suspense>
     );
 }

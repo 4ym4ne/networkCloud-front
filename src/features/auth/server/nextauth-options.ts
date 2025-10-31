@@ -32,7 +32,11 @@ function extractRoles(profile: Record<string, any> | undefined): string[] {
     const resourceRoles = profile.resource_access;
     if (resourceRoles && typeof resourceRoles === "object") {
         const all = Object.values(resourceRoles)
-            .flatMap((entry) => (entry && Array.isArray(entry.roles) ? entry.roles : []))
+            .flatMap((entry) => {
+                if (!entry || typeof entry !== "object") return [];
+                const maybeRoles = (entry as { roles?: unknown }).roles;
+                return Array.isArray(maybeRoles) ? maybeRoles : [];
+            })
             .filter((role): role is string => typeof role === "string");
         return all;
     }
@@ -232,12 +236,9 @@ export const authOptions: NextAuthOptions = {
                 name: session.user?.name ?? profile.username,
                 image: session.user?.image ?? profile.avatarUrl,
             };
-            session.accessToken = extended.accessToken;
-            session.refreshToken = extended.refreshToken;
-            session.expiresAt = extended.expiresAt;
             session.csrfToken = extended.csrfToken;
-            session.idToken = extended.idToken;
             session.error = extended.error;
+            session.accessToken = extended.accessToken;
 
             return session;
         },
@@ -276,9 +277,6 @@ export const authOptions: NextAuthOptions = {
                     outcome: "ok",
                 });
             }
-        },
-        async error(message) {
-            logger.error("NextAuth error event:", message);
         },
     },
 };

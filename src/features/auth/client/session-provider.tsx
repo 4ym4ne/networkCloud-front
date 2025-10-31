@@ -25,6 +25,7 @@ export type SessionContextValue = {
     user: SessionUser | null;
     loading: boolean;
     error: string | null;
+    accessToken: string | null;
     refresh: () => Promise<void>;
     login: (redirect?: string) => void;
     logout: () => void;
@@ -138,12 +139,13 @@ function InternalSessionProvider({ children }: { children: React.ReactNode }) {
             user,
             loading: status === "loading",
             error,
+            accessToken: session?.accessToken ?? null,
             refresh,
             login,
             logout,
             loginInProgress: loginInProgress || status === "loading",
         }),
-        [user, status, error, refresh, login, logout, loginInProgress]
+        [user, status, error, session?.accessToken, refresh, login, logout, loginInProgress]
     );
 
     return (

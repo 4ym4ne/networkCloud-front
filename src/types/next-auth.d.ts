@@ -9,12 +9,9 @@ declare module "next-auth" {
             roles?: string[];
         }) | null;
         userProfile?: UserProfile;
-        accessToken?: string;
-        refreshToken?: string;
-        expiresAt?: number;
         csrfToken?: string;
-        idToken?: string;
         error?: string;
+        accessToken?: string;
     }
 
     interface User {
