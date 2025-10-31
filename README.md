@@ -2,6 +2,25 @@
 
 A Next.js 15 + React 19 application that powers the Network Cloud dashboard. The UI lets analysts upload PCAP captures, review flow and security reports, and receive live notifications from the analysis pipeline.
 
+<p align="center">
+  <img src="images/img.png" alt="Cloud Network Dashboard" style="max-width:70%;height:auto;" />
+</p>
+
+## Screenshots
+<p align="center">
+  <img src="images/img_1.png" alt="PCAP Upload" style="width:48%;height:auto;margin:8px;" />
+  <img src="images/img_2.png" alt="Flow Metrics" style="width:48%;height:auto;margin:8px;" />
+</p>
+<p align="center">
+  <img src="images/img_3.png" alt="Security Report" style="width:48%;height:auto;margin:8px;" />
+  <img src="images/img_4.png" alt="Notifications" style="width:48%;height:auto;margin:8px;" />
+</p>
+<p align="center">
+  <img src="images/img_5.png" alt="" style="width:48%;height:auto;margin:8px;" />
+  <img src="images/img_6.png" alt="" style="width:48%;height:auto;margin:8px;" />
+</p>
+
+
 ## Features
 
 - **PCAP upload workflow** – drag-and-drop queuing for multiple capture files with progress, retry, and proxying to the backend API gateway.
